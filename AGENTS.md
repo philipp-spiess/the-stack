@@ -8,6 +8,7 @@ Multiple agents share this directory structure, so keep commits atomic whenever 
 
 ## Validation Checklist
 - Run `bun test` from the repo root whenever you modify routing, rendering, or CLI code to ensure the manifest logic keeps passing.
+- Run `bun run check` after TypeScript-affecting changes to verify both `packages/the-stack` and `packages/demo` pass `tsgo` type-checking.
 
 ## CLI Lifecycle
 | Command | Responsibilities |
