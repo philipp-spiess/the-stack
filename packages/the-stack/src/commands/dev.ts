@@ -2,6 +2,7 @@ import http from "node:http";
 import path from "node:path";
 import { AddressInfo } from "node:net";
 import { performance } from "node:perf_hooks";
+import tailwindcss from "@tailwindcss/vite";
 import type { ViteDevServer } from "vite";
 import { createServer as createViteServer } from "vite";
 import { createApp } from "../server/create-app";
@@ -83,6 +84,7 @@ async function createViteDevServer(
   const vite = await createViteServer({
     root: appRoot,
     appType: "custom",
+    plugins: [tailwindcss()],
     server: {
       middlewareMode: true,
       hmr: true,
