@@ -29,7 +29,7 @@ export async function runDev(argv: string[]): Promise<void> {
     manifest,
   });
 
-  setupRouteWatcher({ vite, appRoot, logger });
+  setupRouteWatcher({ vite, appRoot, logger, manifest });
 
   const server = http.createServer((req, res) => {
     vite.middlewares(req, res, async (middlewareError) => {

@@ -1,4 +1,5 @@
 import { describe, expect, it } from "bun:test";
+import { promises as fs } from "node:fs";
 import path from "node:path";
 import { createRouteManifest } from "./manifest";
 import type { RouteDefinition, RuntimeMode } from "./types";
@@ -54,4 +55,71 @@ describe("FileSystemRouteManifest", () => {
     const response = await manifest.render("/not-found");
     expect(response).toBeNull();
   });
+
+  it("reloads a route component when the file changes", async () => {
+    const sandbox = await createSandboxApp();
+    const manifest = createRouteManifest({ appRoot: sandbox.appRoot, mode: "dev" });
+
+    try {
+      const initial = await manifest.render("/");
+      expect(await initial!.text()).toContain("Initial");
+
+      await fs.writeFile(sandbox.routeFile, routeSource("Updated"), "utf8");
+      manifest.handleFileChange({ filePath: sandbox.routeFile, event: "change" });
+
+      const updated = await manifest.render("/");
+      expect(await updated!.text()).toContain("Updated");
+    } finally {
+      await sandbox.cleanup();
+    }
+  });
+
+  it("discovers new routes when files are added", async () => {
+    const sandbox = await createSandboxApp();
+    const manifest = createRouteManifest({ appRoot: sandbox.appRoot, mode: "dev" });
+    const aboutFile = path.join(sandbox.routesDir, "about.tsx");
+
+    try {
+      await manifest.render("/");
+      await fs.writeFile(aboutFile, routeSource("About"), "utf8");
+      manifest.handleFileChange({ filePath: aboutFile, event: "add" });
+
+      const response = await manifest.render("/about");
+      expect(response).not.toBeNull();
+      expect(await response!.text()).toContain("About");
+    } finally {
+      await sandbox.cleanup();
+    }
+  });
 });
+
+async function createSandboxApp() {
+  const dir = await fs.mkdtemp(path.join(process.cwd(), "the-stack-manifest-"));
+  const srcDir = path.join(dir, "src");
+  const routesDir = path.join(srcDir, "routes");
+  await fs.mkdir(routesDir, { recursive: true });
+  const rootFile = path.join(srcDir, "root.tsx");
+  await fs.writeFile(rootFile, rootSource, "utf8");
+
+  const routeFile = path.join(routesDir, "index.tsx");
+  await fs.writeFile(routeFile, routeSource("Initial"), "utf8");
+
+  return {
+    appRoot: dir,
+    routeFile,
+    routesDir,
+    cleanup: () => fs.rm(dir, { recursive: true, force: true }),
+  };
+}
+
+const rootSource = `export default function Root({ children }) {
+  return children;
+}
+`;
+
+function routeSource(label: string) {
+  return `export default function Route() {
+  return "${label}";
+}
+`;
+}

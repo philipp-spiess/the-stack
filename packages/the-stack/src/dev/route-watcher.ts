@@ -1,11 +1,13 @@
 import path from "node:path";
 import type { ViteDevServer } from "vite";
+import type { RouteManifest } from "../routing/manifest";
 import type { Logger } from "../utils/logger";
 
 interface RouteWatcherOptions {
   vite: ViteDevServer;
   appRoot: string;
   logger: Logger;
+  manifest: RouteManifest;
 }
 
 const ROUTES_DIR = path.join("src", "routes");
@@ -30,6 +32,7 @@ export function setupRouteWatcher(options: RouteWatcherOptions): void {
       if (!isRelevantFile(filePath, routeDir, rootEntry)) {
         return;
       }
+      options.manifest.handleFileChange({ filePath, event });
       debouncedReload(`${event}: ${path.relative(options.appRoot, filePath)}`);
     });
   });
