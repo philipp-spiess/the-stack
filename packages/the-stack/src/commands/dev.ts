@@ -32,7 +32,7 @@ export async function runDev(argv: string[]): Promise<void> {
   setupRouteWatcher({ vite, appRoot, logger, manifest });
 
   const server = http.createServer((req, res) => {
-    vite.middlewares(req, res, async (middlewareError) => {
+    vite.middlewares(req, res, async (middlewareError?: unknown) => {
       if (middlewareError) {
         logger.error(middlewareError);
         res.statusCode = 500;
@@ -87,9 +87,6 @@ async function createViteDevServer(appRoot: string, options: DevOptions): Promis
     publicDir: path.join(appRoot, "public"),
   });
 
-  // Vite's default appType is "spa"; enforcing "custom" prevents Vite from attempting to serve HTML,
-  // leaving responsibility to our SSR pipeline entirely.
-  vite.config.appType = "custom";
   return vite;
 }
 

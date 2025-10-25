@@ -19,13 +19,17 @@ describe("FileSystemRouteManifest", () => {
     const routeMap: Map<string, RouteDefinition> = await (manifest as any).ensureRoutes();
 
     const about = routeMap.get("/about");
-    expect(about).toBeDefined();
+    if (!about) {
+      throw new Error("About route missing from manifest");
+    }
     expect(about.filePath.replaceAll("\\", "/")).toContain("routes/(marketing)/about.tsx");
     expect(about.layouts).toHaveLength(1);
     expect(about.layouts[0].replaceAll("\\", "/")).toContain("routes/(marketing)/_layout.tsx");
 
     const home = routeMap.get("/");
-    expect(home).toBeDefined();
+    if (!home) {
+      throw new Error("Home route missing from manifest");
+    }
     expect(home.filePath.replaceAll("\\", "/")).toContain("routes/(marketing)/index.tsx");
     expect(home.layouts).toHaveLength(1);
   });

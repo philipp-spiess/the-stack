@@ -1,12 +1,12 @@
-import type { ReactNode } from "react";
+import type { JSX, ReactNode } from "react";
 import type { RuntimeMode } from "../routing/types";
 
 interface PostRootProps {
-  children: ReactNode;
+  children?: ReactNode;
   mode: RuntimeMode;
 }
 
-export function PostRoot({ children, mode }: PostRootProps) {
+export function PostRoot({ children, mode }: PostRootProps): JSX.Element {
   return (
     <>
       {children}

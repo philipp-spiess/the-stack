@@ -5,7 +5,11 @@ interface CreateAppOptions {
   manifest: RouteManifest;
 }
 
-export function createApp(options: CreateAppOptions) {
+export interface StackApp {
+  fetch(request: Request, env?: unknown, executionContext?: unknown): Promise<Response> | Response;
+}
+
+export function createApp(options: CreateAppOptions): StackApp {
   const app = new Hono();
 
   app.get("*", async (context) => {

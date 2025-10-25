@@ -17,14 +17,21 @@ export function createRequestFromNode(req: IncomingMessage): Request {
   }
 
   const body =
-    req.method && ["GET", "HEAD"].includes(req.method.toUpperCase()) ? undefined : (Readable.toWeb(req) as ReadableStream);
+    req.method && ["GET", "HEAD"].includes(req.method.toUpperCase())
+      ? undefined
+      : (Readable.toWeb(req) as unknown as ReadableStream<Uint8Array>);
 
-  return new Request(url, {
+  const init: RequestInit = {
     method: req.method,
     headers,
     body,
-    duplex: "half",
-  });
+  };
+
+  if (body) {
+    (init as RequestInit & { duplex: "half" }).duplex = "half";
+  }
+
+  return new Request(url, init);
 }
 
 export async function sendResponseToNode(res: ServerResponse, response: Response): Promise<void> {
