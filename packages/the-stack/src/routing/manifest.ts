@@ -5,6 +5,7 @@ import { createElement, type ComponentType, type ReactNode } from "react";
 import type { RuntimeMode, RouteDefinition, RouteModule } from "./types";
 import type { LayoutComponent, RootComponent } from "./types";
 import { renderHtml } from "../server/render";
+import { PostRoot } from "../runtime/post-root";
 
 const ROUTES_DIR = path.join("src", "routes");
 const ROOT_ENTRY = path.join("src", "root.tsx");
@@ -51,7 +52,7 @@ class FileSystemRouteManifest implements RouteManifest {
 
     const leaf = await route.get();
     const withLayouts = wrapWithLayouts(layouts, leaf);
-    const tree = createElement(root, null, withLayouts);
+    const tree = createElement(root, null, createElement(PostRoot, { mode: this.mode }, withLayouts));
     return renderHtml(tree);
   }
 
