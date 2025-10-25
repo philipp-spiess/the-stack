@@ -34,7 +34,10 @@ export function createRequestFromNode(req: IncomingMessage): Request {
   return new Request(url, init);
 }
 
-export async function sendResponseToNode(res: ServerResponse, response: Response): Promise<void> {
+export async function sendResponseToNode(
+  res: ServerResponse,
+  response: Response,
+): Promise<void> {
   res.statusCode = response.status;
   response.headers.forEach((value, key) => {
     res.setHeader(key, value);

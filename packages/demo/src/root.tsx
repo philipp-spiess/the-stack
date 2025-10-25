@@ -11,7 +11,8 @@ export default function App({ children }: { children: ReactNode }) {
         <header>
           <h1>The Stack Demo</h1>
           <nav>
-            <a href="/">Home</a> | <a href="/about">About</a> | <a href="/shop">Shop</a>
+            <a href="/">Home</a> | <a href="/about">About</a> |{" "}
+            <a href="/shop">Shop</a>
           </nav>
         </header>
         <main>{children}</main>

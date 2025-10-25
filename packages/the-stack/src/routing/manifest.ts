@@ -3,7 +3,14 @@ import { createRequire } from "node:module";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { createElement, type ComponentType, type ReactNode } from "react";
-import type { LayoutComponent, RootComponent, RouteComponent, RouteDefinition, RouteModule, RuntimeMode } from "./types";
+import type {
+  LayoutComponent,
+  RootComponent,
+  RouteComponent,
+  RouteDefinition,
+  RouteModule,
+  RuntimeMode,
+} from "./types";
 import { renderHtml } from "../server/render";
 import { PostRoot } from "../runtime/post-root";
 
@@ -30,7 +37,9 @@ export interface RouteManifest {
   handleFileChange(change: RouteFileChange): void;
 }
 
-export function createRouteManifest(options: RouteManifestOptions): RouteManifest {
+export function createRouteManifest(
+  options: RouteManifestOptions,
+): RouteManifest {
   return new FileSystemRouteManifest(options);
 }
 
@@ -54,7 +63,10 @@ class FileSystemRouteManifest implements RouteManifest {
 
   handleFileChange(change: RouteFileChange): void {
     const normalized = normalizeFilePath(change.filePath);
-    if (normalized !== this.rootEntryPath && !normalized.startsWith(this.routesDir)) {
+    if (
+      normalized !== this.rootEntryPath &&
+      !normalized.startsWith(this.routesDir)
+    ) {
       return;
     }
 
@@ -78,7 +90,11 @@ class FileSystemRouteManifest implements RouteManifest {
     const Route = await this.loadRouteComponent(definition.filePath);
     const leaf = createElement(Route);
     const withLayouts = wrapWithLayouts(layouts, leaf);
-    const tree = createElement(root, null, createElement(PostRoot, { mode: this.mode }, withLayouts));
+    const tree = createElement(
+      root,
+      null,
+      createElement(PostRoot, { mode: this.mode }, withLayouts),
+    );
     return renderHtml(tree);
   }
 
@@ -103,7 +119,10 @@ class FileSystemRouteManifest implements RouteManifest {
     this.cache = map;
     this.routeIndexByFile.clear();
     for (const definition of map.values()) {
-      this.routeIndexByFile.set(normalizeFilePath(definition.filePath), definition.path);
+      this.routeIndexByFile.set(
+        normalizeFilePath(definition.filePath),
+        definition.path,
+      );
     }
   }
 
@@ -131,14 +150,25 @@ class FileSystemRouteManifest implements RouteManifest {
     output: RouteDefinition[],
   ): Promise<void> {
     const entries = await fs.readdir(currentDir, { withFileTypes: true });
-    const layoutEntry = entries.find((entry) => entry.isFile() && isLayoutFile(entry.name));
-    const layoutPaths = layoutEntry ? [...layouts, path.join(currentDir, layoutEntry.name)] : layouts;
+    const layoutEntry = entries.find(
+      (entry) => entry.isFile() && isLayoutFile(entry.name),
+    );
+    const layoutPaths = layoutEntry
+      ? [...layouts, path.join(currentDir, layoutEntry.name)]
+      : layouts;
 
     for (const entry of entries) {
       if (entry.isDirectory()) {
         const segmentName = sanitizeSegment(entry.name);
-        const nextSegments = segmentName ? [...segments, segmentName] : [...segments];
-        await this.walkDirectory(path.join(currentDir, entry.name), nextSegments, layoutPaths, output);
+        const nextSegments = segmentName
+          ? [...segments, segmentName]
+          : [...segments];
+        await this.walkDirectory(
+          path.join(currentDir, entry.name),
+          nextSegments,
+          layoutPaths,
+          output,
+        );
       } else if (entry.isFile() && isRouteFile(entry.name)) {
         if (isLayoutFile(entry.name)) {
           continue;
@@ -204,7 +234,9 @@ class FileSystemRouteManifest implements RouteManifest {
     }
   }
 
-  private async buildRouteDefinition(filePath: string): Promise<RouteDefinition | null> {
+  private async buildRouteDefinition(
+    filePath: string,
+  ): Promise<RouteDefinition | null> {
     try {
       const stats = await fs.stat(filePath);
       if (!stats.isFile()) {
@@ -271,7 +303,12 @@ class FileSystemRouteManifest implements RouteManifest {
     const ancestorLayouts = await this.collectAncestorLayouts(normalizedDir);
     const segments = this.computeSegmentsForDirectory(normalizedDir);
     const definitions: RouteDefinition[] = [];
-    await this.walkDirectory(normalizedDir, segments, ancestorLayouts, definitions);
+    await this.walkDirectory(
+      normalizedDir,
+      segments,
+      ancestorLayouts,
+      definitions,
+    );
     definitions.sort((a, b) => a.path.localeCompare(b.path));
     for (const definition of definitions) {
       this.upsertRouteDefinition(definition);
@@ -327,7 +364,9 @@ class FileSystemRouteManifest implements RouteManifest {
       return;
     }
 
-    for (const [filePath, routePath] of Array.from(this.routeIndexByFile.entries())) {
+    for (const [filePath, routePath] of Array.from(
+      this.routeIndexByFile.entries(),
+    )) {
       if (isInsideDirectory(filePath, dirPath)) {
         this.cache.delete(routePath);
         this.routeIndexByFile.delete(filePath);
@@ -341,7 +380,10 @@ class FileSystemRouteManifest implements RouteManifest {
     }
 
     this.cache.set(definition.path, definition);
-    this.routeIndexByFile.set(normalizeFilePath(definition.filePath), definition.path);
+    this.routeIndexByFile.set(
+      normalizeFilePath(definition.filePath),
+      definition.path,
+    );
   }
 
   private bumpModuleVersion(filePath: string): void {
@@ -355,7 +397,9 @@ class FileSystemRouteManifest implements RouteManifest {
       return this.rootComponent;
     }
 
-    const module = (await this.importModule<{ default: RootComponent }>(this.rootEntryPath)).default;
+    const module = (
+      await this.importModule<{ default: RootComponent }>(this.rootEntryPath)
+    ).default;
     if (!module) {
       throw new Error(`Root component not found at ${this.rootEntryPath}`);
     }
@@ -369,7 +413,9 @@ class FileSystemRouteManifest implements RouteManifest {
   private async loadLayouts(layoutPaths: string[]): Promise<LayoutComponent[]> {
     const layouts: LayoutComponent[] = [];
     for (const layoutPath of layoutPaths) {
-      const module = (await this.importModule<{ default: LayoutComponent }>(layoutPath)).default;
+      const module = (
+        await this.importModule<{ default: LayoutComponent }>(layoutPath)
+      ).default;
       if (!module) {
         throw new Error(`Layout component not found at ${layoutPath}`);
       }
@@ -381,7 +427,9 @@ class FileSystemRouteManifest implements RouteManifest {
   private async loadRouteComponent(filePath: string): Promise<RouteComponent> {
     const module = await this.importModule<RouteModule>(filePath);
     if (!module.default) {
-      throw new Error(`Route at ${filePath} does not export a default component.`);
+      throw new Error(
+        `Route at ${filePath} does not export a default component.`,
+      );
     }
     return module.default;
   }
@@ -400,9 +448,17 @@ class FileSystemRouteManifest implements RouteManifest {
   }
 }
 
-function wrapWithLayouts(layouts: LayoutComponent[], leaf: ReactNode): ReactNode {
+function wrapWithLayouts(
+  layouts: LayoutComponent[],
+  leaf: ReactNode,
+): ReactNode {
   return layouts.reduceRight(
-    (child, Layout) => createElement(Layout as ComponentType<{ children: ReactNode }>, null, child),
+    (child, Layout) =>
+      createElement(
+        Layout as ComponentType<{ children: ReactNode }>,
+        null,
+        child,
+      ),
     leaf,
   );
 }
@@ -446,7 +502,9 @@ function computeRoutePath(parentSegments: string[], fileName: string): string {
 }
 
 function stripExtension(fileName: string): string {
-  const ext = ROUTE_EXTENSIONS.find((extension) => fileName.endsWith(extension));
+  const ext = ROUTE_EXTENSIONS.find((extension) =>
+    fileName.endsWith(extension),
+  );
   return ext ? fileName.slice(0, -ext.length) : fileName;
 }
 

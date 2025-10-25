@@ -12,7 +12,9 @@ export interface StandaloneServerOptions {
   host?: string;
 }
 
-export async function startStandaloneServer(options: StandaloneServerOptions): Promise<http.Server> {
+export async function startStandaloneServer(
+  options: StandaloneServerOptions,
+): Promise<http.Server> {
   const logger = createLogger();
   const start = performance.now();
 

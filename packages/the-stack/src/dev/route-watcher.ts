@@ -22,11 +22,17 @@ export function setupRouteWatcher(options: RouteWatcherOptions): void {
   options.vite.watcher.add([glob, rootEntry]);
 
   const debouncedReload = debounce((reason: string) => {
-    options.logger.info(`Routes changed (${reason}). Triggering browser reload.`);
+    options.logger.info(
+      `Routes changed (${reason}). Triggering browser reload.`,
+    );
     options.vite.ws.send({ type: "full-reload" });
   }, 80);
 
-  const handledEvents: Array<"add" | "change" | "unlink"> = ["add", "change", "unlink"];
+  const handledEvents: Array<"add" | "change" | "unlink"> = [
+    "add",
+    "change",
+    "unlink",
+  ];
   handledEvents.forEach((event) => {
     options.vite.watcher.on(event, (filePath) => {
       if (!isRelevantFile(filePath, routeDir, rootEntry)) {
@@ -38,9 +44,16 @@ export function setupRouteWatcher(options: RouteWatcherOptions): void {
   });
 }
 
-function isRelevantFile(filePath: string, routeDir: string, rootEntry: string): boolean {
+function isRelevantFile(
+  filePath: string,
+  routeDir: string,
+  rootEntry: string,
+): boolean {
   const normalized = path.normalize(filePath);
-  return normalized.startsWith(path.normalize(routeDir)) || normalized === path.normalize(rootEntry);
+  return (
+    normalized.startsWith(path.normalize(routeDir)) ||
+    normalized === path.normalize(rootEntry)
+  );
 }
 
 function debounce<T extends (...args: any[]) => void>(fn: T, delay: number) {

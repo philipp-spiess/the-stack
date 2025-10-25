@@ -11,13 +11,17 @@ export async function runStart(): Promise<void> {
     const module = await import(pathToFileURL(builtPath).href);
     const start = module.start as (() => Promise<unknown>) | undefined;
     if (typeof start !== "function") {
-      throw new Error(`Built server at ${builtPath} does not export a "start" function.`);
+      throw new Error(
+        `Built server at ${builtPath} does not export a "start" function.`,
+      );
     }
 
     await start();
   } catch (error) {
     logger.error(error instanceof Error ? error.message : error);
-    logger.error('Run "the-stack build" before starting the production server.');
+    logger.error(
+      'Run "the-stack build" before starting the production server.',
+    );
     process.exitCode = 1;
   }
 }

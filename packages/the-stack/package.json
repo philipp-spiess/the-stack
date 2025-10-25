@@ -12,7 +12,8 @@
   "scripts": {
     "dev": "bun run ./src/cli.ts dev",
     "build": "bun run ./src/cli.ts build",
-    "start": "bun run ./src/cli.ts start"
+    "start": "bun run ./src/cli.ts start",
+    "check": "tsgo --project tsconfig.json"
   },
   "dependencies": {
     "@hono/node-server": "^1.1.2",

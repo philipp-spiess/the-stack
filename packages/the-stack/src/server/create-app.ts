@@ -6,7 +6,11 @@ interface CreateAppOptions {
 }
 
 export interface StackApp {
-  fetch(request: Request, env?: unknown, executionContext?: unknown): Promise<Response> | Response;
+  fetch(
+    request: Request,
+    env?: unknown,
+    executionContext?: unknown,
+  ): Promise<Response> | Response;
 }
 
 export function createApp(options: CreateAppOptions): StackApp {

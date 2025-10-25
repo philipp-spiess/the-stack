@@ -5,7 +5,8 @@
   "scripts": {
     "dev": "the-stack dev",
     "build": "the-stack build",
-    "start": "the-stack start"
+    "start": "the-stack start",
+    "check": "tsgo --project tsconfig.json"
   },
   "dependencies": {
     "react": "^19.2.0",

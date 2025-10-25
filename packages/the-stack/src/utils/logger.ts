@@ -15,7 +15,8 @@ export function createLogger(namespace = "the-stack"): Logger {
 }
 
 function write(namespace: string, level: LogLevel, message: unknown): void {
-  const payload = typeof message === "string" ? message : JSON.stringify(message);
+  const payload =
+    typeof message === "string" ? message : JSON.stringify(message);
   const output = `[${namespace}] ${payload}`;
 
   switch (level) {

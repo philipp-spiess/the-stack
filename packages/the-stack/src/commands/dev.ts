@@ -60,7 +60,9 @@ export async function runDev(argv: string[]): Promise<void> {
     const address = server.address() as AddressInfo;
     const elapsed = Math.round(performance.now() - start);
     logger.info(
-      `Ready in ${elapsed}ms: http://${address.address === "::" ? "localhost" : address.address}:${address.port}`,
+      `Ready in ${elapsed}ms: http://${
+        address.address === "::" ? "localhost" : address.address
+      }:${address.port}`,
     );
   });
 
@@ -74,7 +76,10 @@ export async function runDev(argv: string[]): Promise<void> {
   process.on("SIGTERM", close);
 }
 
-async function createViteDevServer(appRoot: string, options: DevOptions): Promise<ViteDevServer> {
+async function createViteDevServer(
+  appRoot: string,
+  options: DevOptions,
+): Promise<ViteDevServer> {
   const vite = await createViteServer({
     root: appRoot,
     appType: "custom",

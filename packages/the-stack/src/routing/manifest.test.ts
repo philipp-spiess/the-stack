@@ -16,21 +16,29 @@ function setupManifest(mode: RuntimeMode = "prod") {
 describe("FileSystemRouteManifest", () => {
   it("scans routes with layout inheritance and group folder omission", async () => {
     const manifest = setupManifest();
-    const routeMap: Map<string, RouteDefinition> = await (manifest as any).ensureRoutes();
+    const routeMap: Map<string, RouteDefinition> = await (
+      manifest as any
+    ).ensureRoutes();
 
     const about = routeMap.get("/about");
     if (!about) {
       throw new Error("About route missing from manifest");
     }
-    expect(about.filePath.replaceAll("\\", "/")).toContain("routes/(marketing)/about.tsx");
+    expect(about.filePath.replaceAll("\\", "/")).toContain(
+      "routes/(marketing)/about.tsx",
+    );
     expect(about.layouts).toHaveLength(1);
-    expect(about.layouts[0].replaceAll("\\", "/")).toContain("routes/(marketing)/_layout.tsx");
+    expect(about.layouts[0].replaceAll("\\", "/")).toContain(
+      "routes/(marketing)/_layout.tsx",
+    );
 
     const home = routeMap.get("/");
     if (!home) {
       throw new Error("Home route missing from manifest");
     }
-    expect(home.filePath.replaceAll("\\", "/")).toContain("routes/(marketing)/index.tsx");
+    expect(home.filePath.replaceAll("\\", "/")).toContain(
+      "routes/(marketing)/index.tsx",
+    );
     expect(home.layouts).toHaveLength(1);
   });
 
@@ -62,14 +70,20 @@ describe("FileSystemRouteManifest", () => {
 
   it("reloads a route component when the file changes", async () => {
     const sandbox = await createSandboxApp();
-    const manifest = createRouteManifest({ appRoot: sandbox.appRoot, mode: "dev" });
+    const manifest = createRouteManifest({
+      appRoot: sandbox.appRoot,
+      mode: "dev",
+    });
 
     try {
       const initial = await manifest.render("/");
       expect(await initial!.text()).toContain("Initial");
 
       await fs.writeFile(sandbox.routeFile, routeSource("Updated"), "utf8");
-      manifest.handleFileChange({ filePath: sandbox.routeFile, event: "change" });
+      manifest.handleFileChange({
+        filePath: sandbox.routeFile,
+        event: "change",
+      });
 
       const updated = await manifest.render("/");
       expect(await updated!.text()).toContain("Updated");
@@ -80,7 +94,10 @@ describe("FileSystemRouteManifest", () => {
 
   it("discovers new routes when files are added", async () => {
     const sandbox = await createSandboxApp();
-    const manifest = createRouteManifest({ appRoot: sandbox.appRoot, mode: "dev" });
+    const manifest = createRouteManifest({
+      appRoot: sandbox.appRoot,
+      mode: "dev",
+    });
     const aboutFile = path.join(sandbox.routesDir, "about.tsx");
 
     try {

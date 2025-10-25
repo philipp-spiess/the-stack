@@ -11,7 +11,9 @@ export async function renderHtml(element: ReactNode): Promise<Response> {
     const { pipe, abort } = renderToPipeableStream(element, {
       onShellReady() {
         pipe(stream);
-        const body = Readable.toWeb(stream) as unknown as ReadableStream<Uint8Array>;
+        const body = Readable.toWeb(
+          stream,
+        ) as unknown as ReadableStream<Uint8Array>;
         resolve(
           new Response(body, {
             status: didError ? 500 : 200,
