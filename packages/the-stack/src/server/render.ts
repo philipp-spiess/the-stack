@@ -1,6 +1,6 @@
 import { PassThrough, Readable } from "node:stream";
 import type { ReactNode } from "react";
-import { renderToPipeableStream } from "react-dom/server";
+import { renderToPipeableStream } from "react-dom/server.node";
 
 export async function renderHtml(element: ReactNode): Promise<Response> {
   return new Promise((resolve, reject) => {
