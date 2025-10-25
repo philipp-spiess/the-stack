@@ -1,4 +1,4 @@
-export async function get() {
+export default function HomePage() {
   return (
     <article>
       <h2>Home</h2>

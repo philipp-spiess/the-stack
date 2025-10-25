@@ -4,7 +4,7 @@ const products = [
   { id: 3, name: "Framework Sticker Pack", price: 8 },
 ];
 
-export async function get() {
+export default function ShopPage() {
   return (
     <article>
       <h2>Shop</h2>

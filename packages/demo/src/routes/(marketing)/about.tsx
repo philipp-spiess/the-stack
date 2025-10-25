@@ -1,4 +1,4 @@
-export async function get() {
+export default function AboutPage() {
   return (
     <article>
       <h2>About</h2>

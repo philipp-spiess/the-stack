@@ -2,8 +2,7 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { createElement, type ComponentType, type ReactNode } from "react";
-import type { RuntimeMode, RouteDefinition, RouteModule } from "./types";
-import type { LayoutComponent, RootComponent } from "./types";
+import type { LayoutComponent, RootComponent, RouteComponent, RouteModule, RuntimeMode, RouteDefinition } from "./types";
 import { renderHtml } from "../server/render";
 import { PostRoot } from "../runtime/post-root";
 
@@ -18,6 +17,7 @@ export interface RouteManifestOptions {
 
 export interface RouteManifest {
   render(pathname: string): Promise<Response | null>;
+  invalidate(): void;
 }
 
 export function createRouteManifest(options: RouteManifestOptions): RouteManifest {
@@ -44,16 +44,16 @@ class FileSystemRouteManifest implements RouteManifest {
 
     const root = await this.loadRootComponent();
     const layouts = await this.loadLayouts(definition.layouts);
-    const route = await this.loadRoute(definition.filePath);
-
-    if (typeof route.get !== "function") {
-      throw new Error(`Route at ${definition.filePath} does not export a "get" function.`);
-    }
-
-    const leaf = await route.get();
+    const Route = await this.loadRouteComponent(definition.filePath);
+    const leaf = createElement(Route);
     const withLayouts = wrapWithLayouts(layouts, leaf);
     const tree = createElement(root, null, createElement(PostRoot, { mode: this.mode }, withLayouts));
     return renderHtml(tree);
+  }
+
+  invalidate(): void {
+    this.cache = null;
+    this.rootComponent = null;
   }
 
   private async ensureRoutes(): Promise<Map<string, RouteDefinition>> {
@@ -140,13 +140,20 @@ class FileSystemRouteManifest implements RouteManifest {
     return layouts;
   }
 
-  private async loadRoute(filePath: string): Promise<RouteModule> {
-    return dynamicImport<RouteModule>(filePath, this.mode);
+  private async loadRouteComponent(filePath: string): Promise<RouteComponent> {
+    const module = await dynamicImport<RouteModule>(filePath, this.mode);
+    if (!module.default) {
+      throw new Error(`Route at ${filePath} does not export a default component.`);
+    }
+    return module.default;
   }
 }
 
-function wrapWithLayouts(layouts: ComponentType<{ children: ReactNode }>[], leaf: ReactNode): ReactNode {
-  return layouts.reduceRight((child, Layout) => createElement(Layout, null, child), leaf);
+function wrapWithLayouts(layouts: LayoutComponent[], leaf: ReactNode): ReactNode {
+  return layouts.reduceRight(
+    (child, Layout) => createElement(Layout as ComponentType<{ children: ReactNode }>, null, child),
+    leaf,
+  );
 }
 
 function normalizePath(pathname: string): string {

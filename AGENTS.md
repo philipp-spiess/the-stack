@@ -2,9 +2,12 @@
 
 ## Overview
 - `packages/the-stack` is a Bun-first meta framework that exposes the `the-stack` CLI (`dev`, `build`, `start`), orchestrating Vite (for DX) plus a Hono HTTP server (for SSR).
-- Applications (e.g. `packages/demo`) structure code under `src/root.tsx` and `src/routes/**`, exporting async `get()` handlers that return React nodes. Rendering is 100 % server-side; no client bundle is generated today.
+- Applications (e.g. `packages/demo`) structure code under `src/root.tsx` and `src/routes/**`, exporting default React components (they can be `async`) that power GET responses. Rendering is 100 % server-side; no client bundle is generated today.
 
 Multiple agents share this directory structure, so keep commits atomic whenever you are told to commit and only touch the files strictly required for your setup.
+
+## Validation Checklist
+- Run `bun test` from the repo root whenever you modify routing, rendering, or CLI code to ensure the manifest logic keeps passing.
 
 ## CLI Lifecycle
 | Command | Responsibilities |
@@ -15,7 +18,7 @@ Multiple agents share this directory structure, so keep commits atomic whenever 
 
 ## Routing Model
 1. `createRouteManifest` recursively scans `src/routes/**`.
-2. Route files export `async function get()`; layout folders supply `_layout.tsx` components that wrap their descendants.
+2. Route files export default React components (async-friendly) that serve GET requests; layout folders supply `_layout.tsx` components (also allowed to be async) that wrap their descendants.
 3. Group folders like `(marketing)` are skipped in the URL path but still contribute layouts.
 4. On each request, the manifest dynamically imports the root, applicable layouts, and route module, then nests them as React elements and streams the response.
 
