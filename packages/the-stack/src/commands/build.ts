@@ -1,6 +1,8 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { performance } from "node:perf_hooks";
+import { build } from "esbuild";
+import type { BuildFailure } from "esbuild";
 import { createRouteManifest } from "../routing/manifest";
 import { createLogger } from "../utils/logger";
 
@@ -27,26 +29,36 @@ export async function runBuild(): Promise<void> {
   const entryPath = path.join(outDir, "server-entry.ts");
   await fs.writeFile(entryPath, entrySource, "utf8");
 
-  const result = await Bun.build({
-    entrypoints: [entryPath],
-    outdir: outDir,
-    target: "bun",
-    format: "esm",
-    splitting: false,
-    minify: false,
-  });
-
-  if (!result.success) {
-    const message = result.logs.map((log) => log.message).join("\n");
-    throw new Error(`Build failed:\n${message}`);
-  }
-
-  const builtPath = path.join(outDir, "server-entry.js");
   const finalPath = path.join(outDir, "server.js");
-  await fs.rename(builtPath, finalPath);
+
+  try {
+    await build({
+      absWorkingDir: appRoot,
+      entryPoints: [entryPath],
+      outfile: finalPath,
+      bundle: true,
+      format: "esm",
+      platform: "node",
+      target: ["node20"],
+      sourcemap: false,
+      logLevel: "silent",
+      metafile: false,
+    });
+  } catch (error) {
+    if (isBuildFailure(error)) {
+      const message = error.errors.map((log) => log.text).join("\n");
+      throw new Error(`Build failed:\n${message}`);
+    }
+
+    throw error;
+  }
 
   const elapsed = Math.round(performance.now() - start);
   logger.info(`Built ${path.relative(appRoot, finalPath)} in ${elapsed}ms`);
+}
+
+function isBuildFailure(error: unknown): error is BuildFailure {
+  return Boolean(error && typeof error === "object" && "errors" in error);
 }
 
 function createServerEntrySource(): string {
