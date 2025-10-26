@@ -3,6 +3,7 @@ import { createRequire } from "node:module";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { createElement, type ComponentType, type ReactNode } from "react";
+import { parse, type HTMLElement } from "node-html-parser";
 import type {
   LayoutComponent,
   LayoutReference,
@@ -12,7 +13,7 @@ import type {
   RouteModule,
   RuntimeMode,
 } from "./types";
-import { renderHtml } from "../server/render";
+import { renderHtml, renderHtmlToString } from "../server/render";
 import { PostRoot } from "../runtime/post-root";
 
 const ROUTES_DIR = path.join("src", "routes");
@@ -33,8 +34,16 @@ export interface RouteManifestOptions {
   mode: RuntimeMode;
 }
 
+export interface RouteManifestRenderOptions {
+  stackOnly?: boolean;
+  currentRoutePath?: string | null;
+}
+
 export interface RouteManifest {
-  render(pathname: string): Promise<Response | null>;
+  render(
+    pathname: string,
+    options?: RouteManifestRenderOptions,
+  ): Promise<Response | null>;
   handleFileChange(change: RouteFileChange): void;
 }
 
@@ -79,9 +88,13 @@ class FileSystemRouteManifest implements RouteManifest {
     }
   }
 
-  async render(pathname: string): Promise<Response | null> {
+  async render(
+    pathname: string,
+    options: RouteManifestRenderOptions = {},
+  ): Promise<Response | null> {
+    const normalizedPath = normalizePath(pathname);
     const map = await this.ensureRoutes();
-    const definition = map.get(normalizePath(pathname));
+    const definition = map.get(normalizedPath);
     if (!definition) {
       return null;
     }
@@ -90,12 +103,39 @@ class FileSystemRouteManifest implements RouteManifest {
     const layouts = await this.loadLayouts(definition.layouts);
     const Route = await this.loadRouteComponent(definition.filePath);
     const leaf = createElement(Route);
-    const withLayouts = wrapWithLayouts(layouts, leaf, definition.path);
+    const routeVersion = this.getModuleVersion(definition.filePath);
+    const withLayouts = wrapWithLayouts(
+      layouts,
+      leaf,
+      definition.path,
+      routeVersion,
+    );
     const tree = createElement(
       root,
       null,
       createElement(PostRoot, { mode: this.mode }, withLayouts),
     );
+    if (options.stackOnly) {
+      const retainCount = this.computeRetainedLayoutCount(
+        definition,
+        map,
+        options.currentRoutePath,
+      );
+      const html = renderHtmlToString(tree);
+      const payload = createStackPayload(
+        html,
+        normalizedPath,
+        retainCount,
+        definition.path,
+      );
+      return new Response(JSON.stringify(payload), {
+        status: 200,
+        headers: {
+          "Content-Type": "application/json; charset=utf-8",
+          "X-The-Stack-Partial": "1",
+        },
+      });
+    }
     return renderHtml(tree);
   }
 
@@ -462,6 +502,7 @@ class FileSystemRouteManifest implements RouteManifest {
       layouts.push({
         component: module,
         stackId: layoutRef.stackId,
+        version: this.getModuleVersion(layoutRef.filePath),
       });
     }
     return layouts;
@@ -479,29 +520,66 @@ class FileSystemRouteManifest implements RouteManifest {
 
   private async importModule<T>(filePath: string): Promise<T> {
     const normalized = normalizeFilePath(filePath);
+    const version = this.getModuleVersion(filePath);
+    const query = this.mode === "dev" ? `?the_stack_v=${version}` : "";
+    const url = pathToFileURL(filePath).href + query;
+    return import(url) as Promise<T>;
+  }
+
+  private getModuleVersion(filePath: string): number {
+    const normalized = normalizeFilePath(filePath);
     let version = this.moduleVersions.get(normalized);
     if (version === undefined) {
       version = 0;
       this.moduleVersions.set(normalized, version);
     }
+    return version;
+  }
 
-    const query = this.mode === "dev" ? `?the_stack_v=${version}` : "";
-    const url = pathToFileURL(filePath).href + query;
-    return import(url) as Promise<T>;
+  private computeRetainedLayoutCount(
+    nextRoute: RouteDefinition,
+    map: Map<string, RouteDefinition>,
+    currentRoutePath?: string | null,
+  ): number {
+    if (!currentRoutePath) {
+      return 0;
+    }
+
+    const normalized = normalizePath(currentRoutePath);
+    const current = map.get(normalized);
+    if (!current) {
+      return 0;
+    }
+
+    const max = Math.min(current.layouts.length, nextRoute.layouts.length);
+    let retained = 0;
+    for (let i = 0; i < max; i += 1) {
+      if (current.layouts[i].stackId !== nextRoute.layouts[i].stackId) {
+        break;
+      }
+      retained += 1;
+    }
+    return retained;
   }
 }
 
 interface LoadedLayout {
   component: LayoutComponent;
   stackId: string;
+  version: number;
 }
 
 function wrapWithLayouts(
   layouts: LoadedLayout[],
   leaf: ReactNode,
   routePath: string,
+  routeVersion: number,
 ): ReactNode {
-  let content = withStackBoundary(stackIdForRoute(routePath), leaf);
+  let content = withStackBoundary(
+    stackIdForRoute(routePath),
+    routeVersion,
+    leaf,
+  );
 
   for (let i = layouts.length - 1; i >= 0; i -= 1) {
     const layout = layouts[i];
@@ -510,18 +588,23 @@ function wrapWithLayouts(
       null,
       content,
     );
-    content = withStackBoundary(layout.stackId, layoutElement);
+    content = withStackBoundary(layout.stackId, layout.version, layoutElement);
   }
 
   return content;
 }
 
-function withStackBoundary(id: string, child: ReactNode): ReactNode {
+function withStackBoundary(
+  id: string,
+  version: number,
+  child: ReactNode,
+): ReactNode {
   return createElement(
     "div",
     {
       style: { display: "contents" },
       "data-stack-id": id,
+      "data-stack-version": String(version ?? 0),
     },
     child,
   );
@@ -533,6 +616,44 @@ function stackIdForLayout(pathname: string, layoutKey: string): string {
 
 function stackIdForRoute(pathname: string): string {
   return `route:${pathname}`;
+}
+
+interface StackBoundaryPayload {
+  id: string;
+  version: string;
+  html?: string;
+  retain: boolean;
+}
+
+interface StackPayload {
+  url: string;
+  status: number;
+  stack: StackBoundaryPayload[];
+  routePath: string;
+}
+
+function createStackPayload(
+  html: string,
+  url: string,
+  retainCount: number,
+  routePath: string,
+): StackPayload {
+  const root = parse(html);
+  const stackNodes = root.querySelectorAll("[data-stack-id]");
+  const clampedRetain = Math.min(Math.max(retainCount, 0), stackNodes.length);
+  const stack: StackBoundaryPayload[] = stackNodes.map((node, index) => ({
+    id: node.getAttribute("data-stack-id") ?? "",
+    version: node.getAttribute("data-stack-version") ?? "0",
+    html: index < clampedRetain ? undefined : node.innerHTML,
+    retain: index < clampedRetain,
+  }));
+
+  return {
+    url,
+    status: 200,
+    stack,
+    routePath,
+  };
 }
 
 function normalizePath(pathname: string): string {

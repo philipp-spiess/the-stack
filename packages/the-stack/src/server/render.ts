@@ -1,6 +1,7 @@
 import { PassThrough, Readable } from "node:stream";
-import type { ReactNode } from "react";
+import type { ReactElement, ReactNode } from "react";
 import { renderToPipeableStream } from "react-dom/server.node";
+import { renderToStaticMarkup } from "react-dom/server";
 
 export async function renderHtml(element: ReactNode): Promise<Response> {
   return new Promise((resolve, reject) => {
@@ -41,4 +42,8 @@ export async function renderHtml(element: ReactNode): Promise<Response> {
       clearTimeout(timeout);
     });
   });
+}
+
+export function renderHtmlToString(element: ReactNode): string {
+  return renderToStaticMarkup(element as ReactElement);
 }

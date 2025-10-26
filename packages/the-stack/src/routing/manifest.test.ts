@@ -60,9 +60,7 @@ describe("FileSystemRouteManifest", () => {
 
     const html = await response!.text();
     expect(html).toContain('data-stack-id="layout:/:(marketing)/_layout.tsx"');
-    expect(html).toContain(
-      'data-stack-id="layout:/:(marketing)/_layout.tsx"><section>',
-    );
+    expect(html).toContain('data-stack-version="0"');
     expect(html).toContain('data-stack-id="route:/about"');
     expect(html).not.toContain('data-stack-id="__root"');
   });
@@ -80,6 +78,36 @@ describe("FileSystemRouteManifest", () => {
     const manifest = setupManifest();
     const response = await manifest.render("/not-found");
     expect(response).toBeNull();
+  });
+
+  it("returns stack payload JSON when stackOnly flag is set", async () => {
+    const manifest = setupManifest();
+    const response = await manifest.render("/about", { stackOnly: true });
+    expect(response).not.toBeNull();
+
+    const payload = await response!.json();
+    expect(payload.stack.length).toBeGreaterThan(0);
+    expect(payload.routePath).toBe("/about");
+    expect(payload.stack[0].id).toContain("layout:");
+    expect(payload.stack[0].retain).toBe(false);
+    expect(
+      payload.stack.some((entry: { html?: string }) =>
+        entry.html?.includes("<h2>About</h2>"),
+      ),
+    ).toBe(true);
+  });
+
+  it("marks shared layouts as retained when current route hint is provided", async () => {
+    const manifest = setupManifest();
+    const response = await manifest.render("/about", {
+      stackOnly: true,
+      currentRoutePath: "/",
+    });
+    expect(response).not.toBeNull();
+
+    const payload = await response!.json();
+    expect(payload.stack[0].retain).toBe(true);
+    expect(payload.stack[1].retain).toBe(false);
   });
 
   it("reloads a route component when the file changes", async () => {

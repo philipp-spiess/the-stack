@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { Link } from "the-stack/runtime";
 import appCss from "./styles.css?url";
 
 export default function App({ children }: { children: ReactNode }) {
@@ -13,8 +14,8 @@ export default function App({ children }: { children: ReactNode }) {
         <header>
           <h1>The Stack Demo</h1>
           <nav>
-            <a href="/">Home</a> | <a href="/about">About</a> |{" "}
-            <a href="/shop">Shop</a>
+            <Link to="/">Home</Link> | <Link to="/about">About</Link> |{" "}
+            <Link to="/shop">Shop</Link>
           </nav>
         </header>
         <main>{children}</main>

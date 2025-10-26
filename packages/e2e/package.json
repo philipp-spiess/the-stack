@@ -4,13 +4,14 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "check": "echo \"Skipping e2e check\"",
+    "check": "bunx tsc --project tsconfig.json --noEmit",
     "test": "playwright test",
     "test:dev": "playwright test --project=dev",
     "test:prod": "playwright test --project=prod"
   },
   "devDependencies": {
     "@playwright/test": "^1.48.2",
+    "@types/node": "^22.8.0",
     "typescript": "^5.4.5"
   },
   "engines": {

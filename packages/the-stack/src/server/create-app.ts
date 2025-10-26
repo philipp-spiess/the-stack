@@ -1,5 +1,8 @@
 import { Hono } from "hono";
-import type { RouteManifest } from "../routing/manifest";
+import type {
+  RouteManifest,
+  RouteManifestRenderOptions,
+} from "../routing/manifest";
 
 interface CreateAppOptions {
   manifest: RouteManifest;
@@ -17,7 +20,15 @@ export function createApp(options: CreateAppOptions): StackApp {
   const app = new Hono();
 
   app.get("*", async (context) => {
-    const response = await options.manifest.render(context.req.path);
+    const stackOnly = context.req.query("_stack") === "1";
+    const currentRoutePath = context.req.query("_stack_current");
+    const renderOptions: RouteManifestRenderOptions | undefined = stackOnly
+      ? { stackOnly, currentRoutePath }
+      : undefined;
+    const response = await options.manifest.render(
+      context.req.path,
+      renderOptions,
+    );
     if (!response) {
       return context.notFound();
     }
