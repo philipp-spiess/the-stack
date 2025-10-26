@@ -5,6 +5,7 @@ import { pathToFileURL } from "node:url";
 import { createElement, type ComponentType, type ReactNode } from "react";
 import type {
   LayoutComponent,
+  LayoutReference,
   RootComponent,
   RouteComponent,
   RouteDefinition,
@@ -89,7 +90,7 @@ class FileSystemRouteManifest implements RouteManifest {
     const layouts = await this.loadLayouts(definition.layouts);
     const Route = await this.loadRouteComponent(definition.filePath);
     const leaf = createElement(Route);
-    const withLayouts = wrapWithLayouts(layouts, leaf);
+    const withLayouts = wrapWithLayouts(layouts, leaf, definition.path);
     const tree = createElement(
       root,
       null,
@@ -146,7 +147,7 @@ class FileSystemRouteManifest implements RouteManifest {
   private async walkDirectory(
     currentDir: string,
     segments: string[],
-    layouts: string[],
+    layouts: LayoutReference[],
     output: RouteDefinition[],
   ): Promise<void> {
     const entries = await fs.readdir(currentDir, { withFileTypes: true });
@@ -154,7 +155,13 @@ class FileSystemRouteManifest implements RouteManifest {
       (entry) => entry.isFile() && isLayoutFile(entry.name),
     );
     const layoutPaths = layoutEntry
-      ? [...layouts, path.join(currentDir, layoutEntry.name)]
+      ? [
+          ...layouts,
+          this.createLayoutReference(
+            path.join(currentDir, layoutEntry.name),
+            segments,
+          ),
+        ]
       : layouts;
 
     for (const entry of entries) {
@@ -263,8 +270,10 @@ class FileSystemRouteManifest implements RouteManifest {
     };
   }
 
-  private async collectLayoutsForFile(filePath: string): Promise<string[]> {
-    const layouts: string[] = [];
+  private async collectLayoutsForFile(
+    filePath: string,
+  ): Promise<LayoutReference[]> {
+    const layouts: LayoutReference[] = [];
     const relativeDir = path.relative(this.routesDir, path.dirname(filePath));
     if (relativeDir.startsWith("..")) {
       return layouts;
@@ -272,15 +281,20 @@ class FileSystemRouteManifest implements RouteManifest {
 
     const segments = relativeDir.split(path.sep).filter(Boolean);
     let currentDir = this.routesDir;
+    let currentSegments: string[] = [];
     const rootLayout = await findLayoutInDirectory(currentDir);
     if (rootLayout) {
-      layouts.push(rootLayout);
+      layouts.push(this.createLayoutReference(rootLayout, currentSegments));
     }
     for (const segment of segments) {
       currentDir = path.join(currentDir, segment);
+      const sanitized = sanitizeSegment(segment);
+      if (sanitized) {
+        currentSegments = [...currentSegments, sanitized];
+      }
       const layoutPath = await findLayoutInDirectory(currentDir);
       if (layoutPath) {
-        layouts.push(layoutPath);
+        layouts.push(this.createLayoutReference(layoutPath, currentSegments));
       }
     }
     return layouts;
@@ -315,15 +329,17 @@ class FileSystemRouteManifest implements RouteManifest {
     }
   }
 
-  private async collectAncestorLayouts(dirPath: string): Promise<string[]> {
+  private async collectAncestorLayouts(
+    dirPath: string,
+  ): Promise<LayoutReference[]> {
     if (dirPath === this.routesDir) {
       return [];
     }
 
-    const layouts: string[] = [];
+    const layouts: LayoutReference[] = [];
     const rootLayout = await findLayoutInDirectory(this.routesDir);
     if (rootLayout) {
-      layouts.push(rootLayout);
+      layouts.push(this.createLayoutReference(rootLayout, []));
     }
 
     const relative = path.relative(this.routesDir, dirPath);
@@ -333,14 +349,34 @@ class FileSystemRouteManifest implements RouteManifest {
 
     const segments = relative.split(path.sep).filter(Boolean);
     let currentDir = this.routesDir;
+    let currentSegments: string[] = [];
     for (let i = 0; i < segments.length - 1; i += 1) {
-      currentDir = path.join(currentDir, segments[i]);
+      const segment = segments[i];
+      currentDir = path.join(currentDir, segment);
+      const sanitized = sanitizeSegment(segment);
+      if (sanitized) {
+        currentSegments = [...currentSegments, sanitized];
+      }
       const layoutPath = await findLayoutInDirectory(currentDir);
       if (layoutPath) {
-        layouts.push(layoutPath);
+        layouts.push(this.createLayoutReference(layoutPath, currentSegments));
       }
     }
     return layouts;
+  }
+
+  private createLayoutReference(
+    layoutPath: string,
+    segments: string[],
+  ): LayoutReference {
+    const routePath = segmentsToPath(segments);
+    const relativeFile = path.relative(this.routesDir, layoutPath);
+    const normalizedRelative = relativeFile.split(path.sep).join("/");
+    return {
+      filePath: layoutPath,
+      path: routePath,
+      stackId: stackIdForLayout(routePath, normalizedRelative),
+    };
   }
 
   private computeSegmentsForDirectory(dirPath: string): string[] {
@@ -410,16 +446,23 @@ class FileSystemRouteManifest implements RouteManifest {
     return module;
   }
 
-  private async loadLayouts(layoutPaths: string[]): Promise<LayoutComponent[]> {
-    const layouts: LayoutComponent[] = [];
-    for (const layoutPath of layoutPaths) {
+  private async loadLayouts(
+    layoutRefs: LayoutReference[],
+  ): Promise<LoadedLayout[]> {
+    const layouts: LoadedLayout[] = [];
+    for (const layoutRef of layoutRefs) {
       const module = (
-        await this.importModule<{ default: LayoutComponent }>(layoutPath)
+        await this.importModule<{ default: LayoutComponent }>(
+          layoutRef.filePath,
+        )
       ).default;
       if (!module) {
-        throw new Error(`Layout component not found at ${layoutPath}`);
+        throw new Error(`Layout component not found at ${layoutRef.filePath}`);
       }
-      layouts.push(module);
+      layouts.push({
+        component: module,
+        stackId: layoutRef.stackId,
+      });
     }
     return layouts;
   }
@@ -448,19 +491,48 @@ class FileSystemRouteManifest implements RouteManifest {
   }
 }
 
+interface LoadedLayout {
+  component: LayoutComponent;
+  stackId: string;
+}
+
 function wrapWithLayouts(
-  layouts: LayoutComponent[],
+  layouts: LoadedLayout[],
   leaf: ReactNode,
+  routePath: string,
 ): ReactNode {
-  return layouts.reduceRight(
-    (child, Layout) =>
-      createElement(
-        Layout as ComponentType<{ children: ReactNode }>,
-        null,
-        child,
-      ),
-    leaf,
+  let content = withStackBoundary(stackIdForRoute(routePath), leaf);
+
+  for (let i = layouts.length - 1; i >= 0; i -= 1) {
+    const layout = layouts[i];
+    const layoutElement = createElement(
+      layout.component as ComponentType<{ children: ReactNode }>,
+      null,
+      content,
+    );
+    content = withStackBoundary(layout.stackId, layoutElement);
+  }
+
+  return content;
+}
+
+function withStackBoundary(id: string, child: ReactNode): ReactNode {
+  return createElement(
+    "div",
+    {
+      style: { display: "contents" },
+      "data-stack-id": id,
+    },
+    child,
   );
+}
+
+function stackIdForLayout(pathname: string, layoutKey: string): string {
+  return `layout:${pathname}:${layoutKey}`;
+}
+
+function stackIdForRoute(pathname: string): string {
+  return `route:${pathname}`;
 }
 
 function normalizePath(pathname: string): string {
@@ -498,6 +570,13 @@ function computeRoutePath(parentSegments: string[], fileName: string): string {
     segments.push(baseName);
   }
 
+  return segmentsToPath(segments);
+}
+
+function segmentsToPath(segments: string[]): string {
+  if (!segments.length) {
+    return "/";
+  }
   return `/${segments.join("/")}`.replace(/\/+/g, "/");
 }
 

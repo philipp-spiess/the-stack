@@ -14,8 +14,14 @@ export type RootComponent = ComponentType<{ children: ReactNode }>;
 
 export type RuntimeMode = "dev" | "prod";
 
+export interface LayoutReference {
+  filePath: string;
+  path: string;
+  stackId: string;
+}
+
 export interface RouteDefinition {
   path: string;
   filePath: string;
-  layouts: string[];
+  layouts: LayoutReference[];
 }

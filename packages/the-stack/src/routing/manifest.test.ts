@@ -28,7 +28,7 @@ describe("FileSystemRouteManifest", () => {
       "routes/(marketing)/about.tsx",
     );
     expect(about.layouts).toHaveLength(1);
-    expect(about.layouts[0].replaceAll("\\", "/")).toContain(
+    expect(about.layouts[0].filePath.replaceAll("\\", "/")).toContain(
       "routes/(marketing)/_layout.tsx",
     );
 
@@ -51,6 +51,20 @@ describe("FileSystemRouteManifest", () => {
     expect(html).toContain("The Stack Demo");
     expect(html).toContain("Welcome to the marketing pages.");
     expect(html).toContain("<h2>About</h2>");
+  });
+
+  it("wraps rendered output with stack boundary markers", async () => {
+    const manifest = setupManifest();
+    const response = await manifest.render("/about");
+    expect(response).not.toBeNull();
+
+    const html = await response!.text();
+    expect(html).toContain('data-stack-id="layout:/:(marketing)/_layout.tsx"');
+    expect(html).toContain(
+      'data-stack-id="layout:/:(marketing)/_layout.tsx"><section>',
+    );
+    expect(html).toContain('data-stack-id="route:/about"');
+    expect(html).not.toContain('data-stack-id="__root"');
   });
 
   it("normalizes trailing slashes and query strings when resolving paths", async () => {
