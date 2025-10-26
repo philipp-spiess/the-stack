@@ -9,7 +9,11 @@
     "build": "bun run --filter the-stack build",
     "start": "bun run --filter demo start",
     "check": "bun run --workspaces check && bunx oxfmt --check .",
-    "format": "bunx oxfmt ."
+    "test": "bun test packages/demo packages/the-stack",
+    "format": "bunx oxfmt .",
+    "e2e": "bun run --filter e2e test",
+    "e2e:dev": "bun run --filter e2e test --project dev",
+    "e2e:prod": "bun run --filter e2e test --project prod"
   },
   "engines": {
     "bun": ">=1.1.0"
